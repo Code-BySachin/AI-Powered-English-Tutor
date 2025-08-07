@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>English Communication Tutor</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <header>
+            <h1>English Communication Tutor</h1>
+            <p>Practice speaking English with AI feedback</p>
+        </header>
+        
+        <div class="chat-container">
+            <div id="chat-display" class="chat-display"></div>
+            
+            <div class="input-area">
+                <textarea id="user-input" placeholder="Type your sentence here..."></textarea>
+                <button id="send-btn" class="btn">Send</button>
+                <button id="mic-btn" class="btn mic-btn">
+                    <img src="./assets/mic.svg" alt="Microphone" width="20">
+                </button>
+            </div>
+            
+            <div class="controls">
+                <select id="difficulty">
+                    <option value="beginner">Beginner</option>
+                    <option value="intermediate" selected>Intermediate</option>
+                    <option value="advanced">Advanced</option>
+                </select>
+                <button id="new-topic" class="btn">New Topic</button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="script.js"></script>
+</body>
+</html>
