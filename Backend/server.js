@@ -26,38 +26,53 @@ app.post('/api/conversation/start', (req, res) => {
 
 // Start topic
 app.post('/api/conversation/topic', async (req, res) => {
-    const { sessionId, difficulty } = req.body;
+    const { sessionId, difficulty, customTopic } = req.body;
+    
     const session = sessions.get(sessionId);
     if (!session) return res.status(404).json({ error: 'Session not found' });
 
     let prompt = '';
 
-    if (difficulty === 'beginner') {
-        prompt = `Start a friendly English conversation for a beginner. 
-Ask a short and simple question. Avoid long replies. Speak naturally like a tutor.`;
-    } else if (difficulty === 'advanced') {
-        prompt = `Start an engaging English conversation on a complex topic like culture or technology.
-Ask a thoughtful question. Speak like a fluent tutor.`;
+    if (customTopic && customTopic.trim() !== '') {
+        // Custom topic provided
+        prompt = `Start a conversation in English about "${customTopic}". 
+        Ask one engaging question. Speak like a friendly tutor, adapting to a ${difficulty || 'medium'}-level learner. 
+        Keep the reply short and conversational.`;
     } else {
-        prompt = `Start a medium-level English conversation.
-Ask a clear question related to hobbies, travel, or daily life. Speak simply.`;
-
+        // Use default based on difficulty
+        if (difficulty === 'beginner') {
+            prompt = `Start a friendly English conversation for a beginner. 
+            Ask a short and simple question. Avoid long replies. Speak naturally like a tutor.`;
+        } else if (difficulty === 'advanced') {
+            prompt = `Start an engaging English conversation on a complex topic like culture or technology.
+            Ask a thoughtful question. Speak like a fluent tutor.`;
+        } else {
+            prompt = `Start a medium-level English conversation.
+            Ask a clear question related to hobbies, travel, or daily life. Speak simply.`;
+        }
     }
 
-    const result = await ai.models.generateContent({
-        model: 'gemini-2.0-flash',
-        contents: [{ role: 'user', parts: [{ text: prompt }] }]
-    });
+    try {
+        const result = await ai.models.generateContent({
+            model: 'gemini-2.0-flash',
+            contents: [{ role: 'user', parts: [{ text: prompt }] }]
+        });
 
-    const text = result.candidates[0].content.parts[0].text;
-    session.history = [
-        { role: 'user', parts: [{ text: prompt }] },
-        { role: 'model', parts: [{ text }] }
-    ];
-    session.topic = difficulty;
+        const text = result.candidates[0].content.parts[0].text;
 
-    res.status(200).json({ response: text });
+        session.history = [
+            { role: 'user', parts: [{ text: prompt }] },
+            { role: 'model', parts: [{ text }] }
+        ];
+        session.topic = customTopic || difficulty;
+
+        res.status(200).json({ response: text });
+    } catch (error) {
+        console.error('Error generating conversation topic:', error);
+        res.status(500).json({ error: 'Failed to start conversation' });
+    }
 });
+
 
 // Handle message + grammar + response
 app.post('/api/conversation/message', async (req, res) => {

@@ -4,28 +4,59 @@ const userInput = document.getElementById('user-input');
 const conversation = document.getElementById('chat-display');
 const difficultySelect = document.getElementById('difficulty');
 const newTopicBtn = document.getElementById('new-topic');
+const toggleInputBtn = document.getElementById('toggle-input-btn');
+const inputArea = document.getElementById('input-area');
+const customTopicInput = document.getElementById('custom-topic');
+const setTopicBtn = document.getElementById('set-topic-btn');
 
 let sessionId = null;
 let recognition;
 let isListening = false;
 let silenceTimer = null;
+let inputVisible = false;
 
-// Start session
-async function startSession(difficulty = 'intermediate') {
-    const startRes = await fetch('http://localhost:3000/api/conversation/start', { method: 'POST' });
+// Toggle input visibility
+toggleInputBtn.addEventListener('click', () => {
+    inputVisible = !inputVisible;
+    inputArea.style.display = inputVisible ? 'block' : 'none';
+    toggleInputBtn.textContent = inputVisible ? 'Hide Input' : 'Show Input';
+});
+
+// Start session with optional custom topic
+async function startSession(difficulty = 'intermediate', customTopic = null) {
+    const startRes = await fetch('http://localhost:4000/api/conversation/start', { 
+        method: 'POST' 
+    });
     const startData = await startRes.json();
     sessionId = startData.sessionId;
 
-    const topicRes = await fetch('http://localhost:3000/api/conversation/topic', {
+    const requestBody = { sessionId, difficulty };
+    if (customTopic) {
+        requestBody.customTopic = customTopic;
+    }
+
+    const topicRes = await fetch('http://localhost:4000/api/conversation/topic', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId, difficulty })
+        body: JSON.stringify(requestBody)
     });
 
     const topicData = await topicRes.json();
     appendMessage('AI', topicData.response);
     speak(topicData.response);
 }
+
+// Set custom topic
+setTopicBtn.addEventListener('click', () => {
+    const customTopic = customTopicInput.value.trim();
+    if (customTopic) {
+        const difficulty = difficultySelect.value;
+        startSession(difficulty, customTopic);
+        customTopicInput.value = '';
+    } else {
+        alert('Please enter a topic first');
+    }
+});
 
 // Send user message to AI
 async function sendMessage() {
@@ -35,7 +66,7 @@ async function sendMessage() {
     appendMessage('You', message);
     userInput.value = '';
 
-    const res = await fetch('http://localhost:3000/api/conversation/message', {
+    const res = await fetch('http://localhost:4000/api/conversation/message', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sessionId, message })
@@ -56,7 +87,14 @@ async function sendMessage() {
 function appendMessage(sender, text) {
     const msg = document.createElement('div');
     msg.classList.add('message', sender === 'You' ? 'user-message' : 'ai-message');
-    msg.innerHTML = `<strong>${sender}:</strong> ${text}`;
+    
+    if (sender.includes('(correction)')) {
+        msg.innerHTML = `<strong>${sender.replace(' (correction)', '')}:</strong> ${text} <span class="correction-badge">Correction</span>`;
+        msg.classList.add('correction-message');
+    } else {
+        msg.innerHTML = `<strong>${sender}:</strong> ${text}`;
+    }
+    
     conversation.appendChild(msg);
     conversation.scrollTop = conversation.scrollHeight;
 }
@@ -69,7 +107,7 @@ function speak(text) {
     synth.speak(utterance);
 }
 
-// Send on Enter
+// Event listeners
 sendBtn.addEventListener('click', sendMessage);
 userInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
@@ -78,14 +116,15 @@ userInput.addEventListener('keydown', (e) => {
     }
 });
 
-// New topic button
 newTopicBtn.addEventListener('click', () => {
     const difficulty = difficultySelect.value;
     startSession(difficulty);
 });
 
-// Toggle microphone on/off
-micBtn.addEventListener('click', () => {
+// Microphone functionality
+micBtn.addEventListener('click', toggleSpeechRecognition);
+
+function toggleSpeechRecognition() {
     if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
         alert("Speech recognition is not supported.");
         return;
@@ -110,7 +149,7 @@ micBtn.addEventListener('click', () => {
                 if (userInput.value.trim()) {
                     sendMessage();
                 }
-            }, 5000);
+            }, 2000); // Shorter delay for more responsive feel
         };
 
         recognition.onerror = function (event) {
@@ -119,7 +158,7 @@ micBtn.addEventListener('click', () => {
 
         recognition.onend = function () {
             if (isListening) {
-                recognition.start(); // Restart only if user didn't manually stop it
+                recognition.start();
             }
         };
     }
@@ -128,9 +167,14 @@ micBtn.addEventListener('click', () => {
         recognition.start();
         isListening = true;
         micBtn.classList.add('listening');
+        // micBtn.querySelector('img').src = './assets/mic-active.svg';
     } else {
         recognition.stop();
         isListening = false;
         micBtn.classList.remove('listening');
+        micBtn.querySelector('img').src = './assets/mic.svg';
     }
-});
+}
+
+// Initialize with random topic
+startSession('beginner');
